@@ -2968,6 +2968,11 @@ configure_view(dns_view_t *view, cfg_obj_t *config, cfg_obj_t *vconfig,
 	INSIST(result == ISC_R_SUCCESS);
 	view->minimalresponses = cfg_obj_asboolean(obj);
 
+    obj = NULL;
+    result = ns_config_get(maps, "log-responses", &obj);
+    INSIST(result == ISC_R_SUCCESS);
+    view->logresponses = cfg_obj_asboolean(obj);
+
 	obj = NULL;
 	result = ns_config_get(maps, "transfer-format", &obj);
 	INSIST(result == ISC_R_SUCCESS);

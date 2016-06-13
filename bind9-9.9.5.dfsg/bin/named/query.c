@@ -163,6 +163,9 @@ query_findclosestnsec3(dns_name_t *qname, dns_db_t *db,
 static inline void
 log_queryerror(ns_client_t *client, isc_result_t result, int line, int level);
 
+static inline void
+log_response(ns_client_t *client);
+
 static void
 rpz_st_clear(ns_client_t *client);
 
@@ -7511,12 +7514,87 @@ query_find(ns_client_t *client, dns_fetchevent_t *event, dns_rdatatype_t qtype)
 		     client->message->rcode != dns_rcode_noerror))
 			eresult = ISC_R_FAILURE;
 
+        /* making some log about response */
+        if (client->view->logresponses) {
+            log_response(client);
+        }
+
 		query_send(client);
 		ns_client_detach(&client);
 	}
 	CTRACE("query_find: done");
 
 	return (eresult);
+}
+
+static inline void
+log_response(ns_client_t *client) {
+    dns_name_t *name, *print_name;
+    dns_rdataset_t *rdataset;
+    isc_buffer_t target;
+    isc_result_t result;
+    isc_region_t r;
+    dns_name_t empty_name;
+    dns_message_t *msg;
+    char t[65536];
+    isc_boolean_t first;
+    isc_boolean_t no_rdata;
+    dns_section_t sectionid;
+    const char *section_name;
+    char namebuf[DNS_NAME_FORMATSIZE];
+    /* init value */
+    sectionid = DNS_SECTION_ANSWER;
+    section_name = "ANSWER";
+
+    dns_name_format(client->query.qname, namebuf, sizeof(namebuf));
+    /* making some log about response */
+    msg = client->message;
+    if (sectionid == DNS_SECTION_QUESTION)
+        no_rdata = ISC_TRUE;
+    else
+        no_rdata = ISC_FALSE;
+
+    dns_name_init(&empty_name, NULL);
+    result = dns_message_firstname(msg, sectionid);
+    if (result == ISC_R_NOMORE)
+        return;
+    else if (result != ISC_R_SUCCESS)
+        return;
+    for (;;) {
+        name = NULL;
+        dns_message_currentname(msg, sectionid, &name);
+
+        isc_buffer_init(&target, t, sizeof(t));
+        first = ISC_TRUE;
+        print_name = name;
+
+        for (rdataset = ISC_LIST_HEAD(name->list);
+             rdataset != NULL;
+             rdataset = ISC_LIST_NEXT(rdataset, link)) {
+            result = dns_rdataset_totext(rdataset,
+                             print_name,
+                             ISC_FALSE,
+                             no_rdata,
+                             &target);
+            if (result != ISC_R_SUCCESS)
+                return;
+            if (first) {
+                print_name = &empty_name;
+                first = ISC_FALSE;
+            }
+        }
+        isc_buffer_usedregion(&target, &r);
+        ns_client_log(client, NS_LOGCATEGORY_QUERIES, NS_LOGMODULE_QUERY,ISC_LOG_INFO, "(query: %s) response: %.*s",
+        namebuf,
+        (int)r.length,
+        (char *)r.base);
+
+        result = dns_message_nextname(msg, sectionid);
+        if (result == ISC_R_NOMORE)
+            break;
+        else if (result != ISC_R_SUCCESS)
+            return;
+    }
 }
 
 static inline void

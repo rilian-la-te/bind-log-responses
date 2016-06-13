@@ -128,6 +128,7 @@ options {\n\
 #	topology <none>\n\
 	auth-nxdomain false;\n\
 	minimal-responses false;\n\
+	log-responses false;\n\
 	recursion true;\n\
 	provide-ixfr true;\n\
 	request-ixfr true;\n\
