@@ -7527,6 +7527,20 @@ query_find(ns_client_t *client, dns_fetchevent_t *event, dns_rdatatype_t qtype)
 	return (eresult);
 }
 
+static inline char *
+strdelimit (char       *string,
+            const char *delimiters,
+            char        new_delim) {
+    char *c;
+
+    for (c = string; *c; c++){
+        if (strchr (delimiters, *c))
+            *c = new_delim;
+    }
+
+    return string;
+}
+
 static inline void
 log_response(ns_client_t *client) {
     dns_name_t *name, *print_name;
@@ -7584,6 +7598,7 @@ log_response(ns_client_t *client) {
             }
         }
         isc_buffer_usedregion(&target, &r);
+        r.base = (unsigned char *)strdelimit((char *)r.base,"\n",' ');
         ns_client_log(client, NS_LOGCATEGORY_QUERIES, NS_LOGMODULE_QUERY,ISC_LOG_INFO, "(query: %s) response: %.*s",
         namebuf,
         (int)r.length,
